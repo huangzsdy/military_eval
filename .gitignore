@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 数据（不提交原始数据）
+data/raw/
+data/processed/
+!data/processed/.gitkeep
+
+# 输出
+output/
+*.log
+
+# 模型
+*.pt
+*.bin
+*.safetensors
+checkpoints/
+wandb/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 敏感配置
+config.local.yaml

@@ -1,0 +1,79 @@
+# ============================================================
+# 军事数据集评测框架 · 全局配置
+# ============================================================
+
+data:
+  path: data/raw/military_data.jsonl
+  content_field: content
+  max_docs: -1                # -1 = 使用全部文档
+  text_column: content         # jsonl 中文本字段名
+  encoding: utf-8
+
+model:
+  base_model: Qwen/Qwen2.5-7B
+  tokenizer: Qwen/Qwen2.5-7B
+  dtype: bfloat16
+  output_dir: output/checkpoints
+  # 继续预训练超参
+  learning_rate: 2.0e-5
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 8
+  max_seq_length: 2048
+  warmup_ratio: 0.03
+  logging_steps: 50
+  save_steps: 1000
+  use_lora: true
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+
+static_eval:
+  # 参考语料（用于 MAUVE 分布对比）
+  reference_corpus: CMNEE       # 可选: CMNEE / ND-NER / custom
+  reference_path: ""            # 留空则自动下载
+  ngram_sizes: [4, 8, 16]
+  # 脱敏扫描
+  desensitize:
+    enabled: true
+    patterns:
+      - '\\d{4,5}[-–—]\\d{4,5}'   # 番号
+      - '[A-Z]{2,5}-\\d+'          # 装备编号
+    ner_model: ""                 # 留空则跳过 NER 脱敏
+
+probe_ner:
+  enabled: true
+  dataset: ND-NER
+  dataset_path: "data/processed/nd_ner"  # ND-NER 数据路径
+  test_split: test
+  eval_metric: seqeval            # strict 实体级评测
+  num_labels: 19                  # ND-NER 实体类别数
+  fine_tune_epochs: 5
+  batch_size: 16
+  learning_rate: 5.0e-5
+
+probe_event:
+  enabled: false
+  dataset: CMNEE
+  dataset_path: ""
+  test_split: test
+  fine_tune_epochs: 3
+  batch_size: 8
+  learning_rate: 3.0e-5
+
+probe_qa:
+  enabled: false
+  num_questions: 500
+  question_types:
+    - 军语解释
+    - 战术分析
+    - 条令问答
+    - 装备对比
+  judge_model: Qwen/Qwen2.5-72B-Instruct  # LLM-as-Judge
+  retrieval_top_k: 5
+
+report:
+  output_dir: output/reports
+  figures_dir: output/figures
+  metrics_dir: output/metrics
+  formats: [markdown, html, json]
