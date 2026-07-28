@@ -26,9 +26,10 @@ from collections import defaultdict, Counter
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+from torch.optim import AdamW
 from transformers import (
     AutoModel, AutoTokenizer,
-    AdamW, get_linear_schedule_with_warmup,
+    get_linear_schedule_with_warmup,
 )
 import numpy as np
 from tqdm import tqdm

@@ -5,6 +5,7 @@
 # 数据文件配置
 data:
   path: data/raw/military_data.jsonl
+  content_field: content      # jsonl 中的文本字段名
   max_docs: -1                # -1 = 使用全部文档
   encoding: utf-8
 
