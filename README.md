@@ -139,6 +139,131 @@ military_eval/
     └── metrics:            # JSON metrics
 ```
 
+## Detailed Evaluation Workflow
+
+### Overall Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Input: Your Military Dataset                  │
+│                  (jsonl format, content field)                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              Layer 1: Static Quality Evaluation                 │
+│                   (Statistical analysis only)                   │
+└─────────────────────────────────────────────────────────────────┘
+         │                   │                   │
+         ▼                   ▼                   ▼
+   ┌──────────┐       ┌──────────┐       ┌──────────┐
+   │ Scale    │       │ Dedup    │       │ Domain   │
+   │ Stats    │       │ Detection│       │ Analysis │
+   └──────────┘       └──────────┘       └──────────┘
+         │                   │                   │
+         └───────────────────┼───────────────────┘
+                             ▼
+                    static_eval.json
+
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│              Layer 2: Downstream Task Probes                   │
+│    (Train models on your data, test on public benchmarks)     │
+└─────────────────────────────────────────────────────────────────┘
+         │                   │                   │
+         ▼                   ▼                   ▼
+   ┌──────────┐       ┌──────────┐       ┌──────────┐
+   │   NER    │       │  Event   │       │    QA    │
+   │  Probe   │       │  Probe   │       │  Probe   │
+   └────┬─────┘       └────┬─────┘       └────┬─────┘
+        │                   │                   │
+        ▼                   ▼                   ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ Fine-tune on   │ │ Fine-tune on   │ │ Generate       │
+│ ND-NER         │ │ CMNEE         │ │ Answers        │
+└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+         │                   │                   │
+         ▼                   ▼                   ▼
+    P/R/F1             Trigger F1          ROUGE/BERTScore
+                                              (Optional)
+                                                │
+                                                ▼
+                                           LLM Judge
+                                           Quality Score
+
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│            Layer 3: Training Benefit Quantification            │
+│                  (A/B ablation experiments)                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Layer 1: Static Quality Evaluation (Details)
+
+| Module | What it does | Metrics |
+|--------|--------------|---------|
+| **Basic Statistics** | Count documents/chars/tokens | num_docs, avg_length, P50/P95/P99 |
+| **n-gram Repetition** | Measure text repetition | in-doc / cross-doc repetition rate |
+| **MinHash Dedup** | Detect near-duplicate docs | duplicate_rate |
+| **Domain Distribution** | Analyze topic coverage | category entropy |
+| **MAUVE** | Compare distribution with reference | similarity score (0-1) |
+| **Desensitization** | Scan sensitive info | pattern matches |
+
+### Layer 2: Probe Tasks (Details)
+
+#### 2.1 NER Probe
+```
+Your Data → Continue Pre-training → Fine-tune → Test on ND-NER → P/R/F1
+```
+
+- **Dataset**: ND-NER (19 entity types)
+- **Model**: Qwen2.5-7B + TokenClassification head
+- **Metrics**: entity-level Precision/Recall/F1
+
+#### 2.2 Event Extraction Probe
+```
+Your Data → Continue Pre-training → Fine-tune → Test on CMNEE → Trigger F1
+```
+
+- **Dataset**: CMNEE (8 event types: experiment/movement/deployment/support/accident/training/conflict/casualty)
+- **Model**: Qwen2.5-7B + Dual heads (trigger + argument)
+- **Metrics**: Type Acc, Type R, Arg R, Trigger F1
+
+#### 2.3 QA Probe
+
+**Option A: Auto Metrics (No Judge Model)**
+```
+Question → Generate Answer → Compare with Reference → ROUGE/BERTScore
+```
+
+- **Metrics**: ROUGE-1, ROUGE-2, ROUGE-L, BERTScore
+
+**Option B: LLM-as-Judge (Optional)**
+```
+Question + Answer → Judge Model (72B) → Quality Scores
+```
+
+- **Scores**: accuracy, completeness, relevance, military_expertise (1-10 each)
+
+### Layer 3: A/B Experiment
+
+| Group | Treatment | Evaluation |
+|-------|-----------|------------|
+| **A (Baseline)** | Fine-tune base model directly | NER/Event/QA metrics |
+| **B (Experiment)** | Continue pre-train with your data, then fine-tune | NER/Event/QA metrics |
+
+**Improvement** = (B - A) / A × 100%
+
+## Models Used
+
+| Model | Purpose | Usage |
+|-------|---------|-------|
+| **Qwen/Qwen2.5-7B** | Base model | Continue pre-training + fine-tuning |
+| **Qwen/Qwen2.5-72B-Instruct** | Judge model | LLM-as-Judge (optional) |
+| **LoRA (r=16)** | Efficient training | Reduce GPU memory |
+
 ## Configuration (config.yaml)
 
 ```yaml
@@ -327,6 +452,130 @@ military_eval/
     ├── reports/             # 评测报告
     └── metrics/            # 量化指标 JSON
 ```
+
+## 详细评测流程
+
+### 整体架构
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    输入：你的军事数据集                           │
+│                  (jsonl格式，content字段)                       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                  第一层：静态质量评测                             │
+│                     (只做统计分析)                              │
+└─────────────────────────────────────────────────────────────────┘
+         │                   │                   │
+         ▼                   ▼                   ▼
+   ┌──────────┐       ┌──────────┐       ┌──────────┐
+   │ 规模统计  │       │ 去重检测  │       │ 分布分析  │
+   └──────────┘       └──────────┘       └──────────┘
+         │                   │                   │
+         └───────────────────┼───────────────────┘
+                             ▼
+                    static_eval.json
+
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   第二层：下游任务探针                            │
+│             (用你的数据训练模型，在公开基准上测试)               │
+└─────────────────────────────────────────────────────────────────┘
+         │                   │                   │
+         ▼                   ▼                   ▼
+   ┌──────────┐       ┌──────────┐       ┌──────────┐
+   │   NER    │       │ 事件抽取  │       │   QA    │
+   │  探针    │       │   探针    │       │   探针   │
+   └────┬─────┘       └────┬─────┘       └────┬─────┘
+        │                   │                   │
+        ▼                   ▼                   ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ 在ND-NER上微调  │ │ 在CMNEE上微调  │ │ 生成回答       │
+│ 并测试          │ │ 并测试          │ │ + 指标计算     │
+└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+         │                   │                   │
+         ▼                   ▼                   ▼
+    P/R/F1             Trigger F1          ROUGE/BERTScore
+                                              (可选)
+                                                │
+                                                ▼
+                                           裁判模型评估
+                                           质量评分
+
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    第三层：训练收益量化                          │
+│                     (A/B消融实验)                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 第一层：静态质量评测（详解）
+
+| 模块 | 操作 | 指标 |
+|------|------|------|
+| **基础规模统计** | 统计文档/字符/token数 | 文档数、平均长度、P50/P95/P99 |
+| **n-gram重复率** | 计算n元组重复程度 | 文档内/文档间重复率 |
+| **MinHash去重** | 检测近似重复文档 | 重复率 |
+| **领域分布分析** | 基于关键词匹配8大类 | 类别熵值 |
+| **MAUVE对比** | 与参考语料对比分布 | 相似度分数(0-1) |
+| **脱敏扫描** | 匹配敏感信息模式 | 匹配数量 |
+
+### 第二层：探针任务（详解）
+
+#### 2.1 NER探针
+```
+你的数据 → 继续预训练 → 微调(ND-NER) → 测试 → P/R/F1
+```
+
+- **数据集**：ND-NER（19类实体）
+- **模型**：Qwen2.5-7B + TokenClassification头
+- **指标**：entity-level Precision/Recall/F1
+
+#### 2.2 事件抽取探针
+```
+你的数据 → 继续预训练 → 微调(CMNEE) → 测试 → Trigger F1
+```
+
+- **数据集**：CMNEE（8类事件：实验/机动/部署/支援/事故/演训/冲突/伤亡）
+- **模型**：Qwen2.5-7B + 双头（触发词+论元）
+- **指标**：Type Acc、Type R、Arg R、Trigger F1
+
+#### 2.3 QA探针
+
+**方式A：自动指标（不需要裁判模型）**
+```
+问题 → 模型生成回答 → 对比参考答案 → ROUGE/BERTScore
+```
+
+- **指标**：ROUGE-1、ROUGE-2、ROUGE-L、BERTScore
+
+**方式B：LLM-as-Judge（可选）**
+```
+问题 + 回答 → 裁判模型(72B) → 质量评分
+```
+
+- **评分维度**：准确性、完整性、相关性、军事专业性（各1-10分）
+
+### 第三层：A/B实验
+
+| 组别 | 处理方式 | 评测任务 |
+|------|----------|----------|
+| **A组（基线）** | 基座模型直接微调 | NER/事件抽取/QA |
+| **B组（实验组）** | 你的数据继续预训练后微调 | NER/事件抽取/QA |
+
+**提升幅度** = (B组指标 - A组指标) / A组指标 × 100%
+
+## 使用的模型
+
+| 模型 | 用途 | 说明 |
+|------|------|------|
+| **Qwen/Qwen2.5-7B** | 基座模型 | 继续预训练+微调 |
+| **Qwen/Qwen2.5-72B-Instruct** | 裁判模型 | LLM-as-Judge（可选） |
+| **LoRA (r=16)** | 高效训练 | 降低显存占用 |
 
 ## 配置文件说明（config.yaml）
 
