@@ -83,6 +83,34 @@ bash scripts/run_static_only.sh
 bash scripts/run_all.sh
 ```
 
+## Multi-Field Evaluation
+
+If your dataset contains multiple fields (e.g., original text, QA pairs, Wikipedia-style rephrasing), you can use the multi-field evaluation system:
+
+```bash
+# Run multi-field evaluation
+python -m src.multi_field_eval --config config.yaml
+```
+
+### Supported Field Types
+
+| Field | Description | Evaluation |
+|-------|-------------|------------|
+| `content` | Original military text | Full evaluation (static + NER + event + QA) |
+| `synthesized_content_QA` | QA pairs | QA-specific evaluation |
+| `synthesized_Wikipedia-style_rephrasing` | Wiki-style rephrasing | Quality evaluation |
+
+### Input Format
+
+```json
+{
+  "id": "001",
+  "content": "原始军事文本内容...",
+  "synthesized_content_QA": "[{\"question\": \"问题\", \"answer\": \"答案\"}]",
+  "synthesized_Wikipedia-style_rephrasing": "Wiki百科风格改写..."
+}
+```
+
 ## Directory Structure
 
 ```
@@ -242,6 +270,34 @@ bash scripts/run_static_only.sh
 
 # 完整流程（需要GPU）:
 bash scripts/run_all.sh
+```
+
+## 多字段评测
+
+如果你的数据集包含多个字段（例如：原始文本、QA对、Wiki百科风格改写），可以使用多字段评测系统：
+
+```bash
+# 运行多字段评测
+python -m src.multi_field_eval --config config.yaml
+```
+
+### 支持的字段类型
+
+| 字段 | 说明 | 评测方式 |
+|------|------|----------|
+| `content` | 原始军事文本 | 完整评测（静态+NER+事件+QA） |
+| `synthesized_content_QA` | QA问答对 | QA专项评测 |
+| `synthesized_Wikipedia-style_rephrasing` | Wiki风格改写 | 改写质量评测 |
+
+### 输入格式
+
+```json
+{
+  "id": "001",
+  "content": "原始军事文本内容...",
+  "synthesized_content_QA": "[{\"question\": \"问题\", \"answer\": \"答案\"}]",
+  "synthesized_Wikipedia-style_rephrasing": "Wiki百科风格改写..."
+}
 ```
 
 ## 目录结构

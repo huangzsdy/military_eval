@@ -2,13 +2,50 @@
 # 军事数据集评测框架 · 全局配置
 # ============================================================
 
+# 数据文件配置
 data:
   path: data/raw/military_data.jsonl
-  content_field: content
   max_docs: -1                # -1 = 使用全部文档
-  text_column: content         # jsonl 中文本字段名
   encoding: utf-8
 
+# ============================================================
+# 多字段评测配置
+# 根据你的数据中的不同字段，使用不同的评测策略
+# ============================================================
+fields:
+  # 字段1: 原始content字段 - 完整评测
+  content:
+    enabled: true
+    description: "原始军事文本内容"
+    static_eval: true
+    probe_tasks:
+      - ner        # 军事NER探针
+      - event      # 事件抽取探针
+      - qa         # QA探针（可从content构建）
+
+  # 字段2: QA合成字段 - 专用QA评测
+  synthesized_content_QA:
+    enabled: true
+    description: "包含QA对的合成文本"
+    static_eval: true
+    # QA字段已经有QA对，可以直接用于QA评测
+    qa_format: "json"  # json格式: {"question": "...", "answer": "..."}
+    probe_tasks:
+      - qa_direct  # 直接使用QA对评测
+
+  # 字段3: Wiki改写字段 - 质量评测
+  synthesized_Wikipedia-style_rephrasing:
+    enabled: true
+    description: "Wiki百科风格改写"
+    static_eval: true
+    # 改写文本质量评估
+    probe_tasks:
+      - quality    # 改写质量评测
+      - coherence  # 连贯性评测
+
+# ============================================================
+# 模型配置
+# ============================================================
 model:
   base_model: Qwen/Qwen2.5-7B
   tokenizer: Qwen/Qwen2.5-7B
@@ -28,6 +65,9 @@ model:
   lora_alpha: 32
   lora_dropout: 0.05
 
+# ============================================================
+# 静态评测配置
+# ============================================================
 static_eval:
   # 参考语料（用于 MAUVE 分布对比）
   reference_corpus: CMNEE       # 可选: CMNEE / ND-NER / custom
@@ -41,6 +81,9 @@ static_eval:
       - '[A-Z]{2,5}-\\d+'          # 装备编号
     ner_model: ""                 # 留空则跳过 NER 脱敏
 
+# ============================================================
+# 探针任务配置
+# ============================================================
 probe_ner:
   enabled: true
   dataset: ND-NER
@@ -62,7 +105,7 @@ probe_event:
   learning_rate: 3.0e-5
 
 probe_qa:
-  enabled: false
+  enabled: true
   num_questions: 500
   question_types:
     - 军语解释
@@ -72,6 +115,9 @@ probe_qa:
   judge_model: Qwen/Qwen2.5-72B-Instruct  # LLM-as-Judge
   retrieval_top_k: 5
 
+# ============================================================
+# 报告配置
+# ============================================================
 report:
   output_dir: output/reports
   figures_dir: output/figures
