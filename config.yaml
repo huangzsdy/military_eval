@@ -49,20 +49,20 @@ fields:
 model:
   base_model: Qwen/Qwen2.5-7B
   tokenizer: Qwen/Qwen2.5-7B
-  dtype: bfloat16
+  dtype: float16              # 改为 float16，更兼容
   output_dir: output/checkpoints
   # 继续预训练超参
   learning_rate: 2.0e-5
   num_train_epochs: 3
-  per_device_train_batch_size: 4
-  gradient_accumulation_steps: 8
-  max_seq_length: 2048
+  per_device_train_batch_size: 2  # 减小 batch size
+  gradient_accumulation_steps: 16  # 增加梯度累积
+  max_seq_length: 1024            # 减小序列长度
   warmup_ratio: 0.03
   logging_steps: 50
   save_steps: 1000
   use_lora: true
-  lora_rank: 16
-  lora_alpha: 32
+  lora_rank: 8               # 减小 LoRA rank
+  lora_alpha: 16             # 相应减小 alpha
   lora_dropout: 0.05
 
 # ============================================================
@@ -85,14 +85,14 @@ static_eval:
 # 探针任务配置
 # ============================================================
 probe_ner:
-  enabled: true
+  enabled: false
   dataset: ND-NER
   dataset_path: "data/processed/nd_ner"  # ND-NER 数据路径
   test_split: test
   eval_metric: seqeval            # strict 实体级评测
   num_labels: 19                  # ND-NER 实体类别数
-  fine_tune_epochs: 5
-  batch_size: 16
+  fine_tune_epochs: 2
+  batch_size: 4
   learning_rate: 5.0e-5
 
 probe_event:
@@ -105,14 +105,14 @@ probe_event:
   learning_rate: 3.0e-5
 
 probe_qa:
-  enabled: true
+  enabled: false
   num_questions: 500
   question_types:
     - 军语解释
     - 战术分析
     - 条令问答
     - 装备对比
-  judge_model: Qwen/Qwen2.5-72B-Instruct  # LLM-as-Judge
+  judge_model: ""  # 留空则使用规则评分，不调用大模型
   retrieval_top_k: 5
 
 # ============================================================
