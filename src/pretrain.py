@@ -1,6 +1,6 @@
 """
 继续预训练脚本
-=================================
+===================================
 使用你的军事 jsonl 数据继续预训练基座模型。
 支持 DeepSpeed + LoRA（显存不足时）或全参数训练。
 
@@ -30,7 +30,13 @@ from src import load_config, load_jsonl, get_output_dirs, get_device_info
 
 
 class MilitaryTextDataset(Dataset):
-    """将 jsonl 的 content 字段转为 causal LM 训练样本"""
+    """
+    将 jsonl 的 content 字段转为 causal LM 训练样本
+    
+    注意：这里只返回 tokenize 后的文本，不返回 labels
+    labels 由 DataCollatorForLanguageModeling 自动生成
+    这样可以避免 labels requires_grad=False 的问题
+    """
     
     def __init__(self, data: list[dict], tokenizer, max_length: int, content_field: str):
         self.tokenizer = tokenizer
@@ -43,23 +49,19 @@ class MilitaryTextDataset(Dataset):
     
     def __getitem__(self, idx):
         text = self.texts[idx]
-        # 截断过长文本
+        # 只返回 input_ids 和 attention_mask
+        # 不返回 labels，由 DataCollator 负责生成
         encoding = self.tokenizer(
             text,
             max_length=self.max_length,
             truncation=True,
-            padding="max_length",
+            padding=False,  # 使用 False 让 DataCollator 做 dynamic padding
             return_tensors="pt",
         )
-        input_ids = encoding["input_ids"].squeeze(0)
-        attention_mask = encoding["attention_mask"].squeeze(0)
-        # Causal LM: labels = input_ids（padding 位置设为 -100）
-        labels = input_ids.clone()
-        labels[attention_mask == 0] = -100
+        # squeeze 去掉 batch 维度
         return {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "labels": labels,
+            "input_ids": encoding["input_ids"].squeeze(0),
+            "attention_mask": encoding["attention_mask"].squeeze(0),
         }
 
 
@@ -102,21 +104,22 @@ def main(config_path: str = "config.yaml"):
             lora_alpha=config["model"]["lora_alpha"],
             lora_dropout=config["model"]["lora_dropout"],
             target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                            "gate_proj", "up_proj", "down_proj"],
+                           "gate_proj", "up_proj", "down_proj"],
             bias="none",
             task_type="CAUSAL_LM",
         )
         model = get_peft_model(model, lora_config)
         model.print_trainable_parameters()
     
-    # 数据集
+    # 数据集 - 只返回文本，不返回 labels
     train_dataset = MilitaryTextDataset(
         data, tokenizer,
         max_length=config["model"]["max_seq_length"],
         content_field=config["data"]["content_field"],
     )
     
-    # 数据整理器
+    # 数据整理器 - 负责生成 labels
+    # mlm=False 表示 causal language modeling
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,
         mlm=False,  # causal LM
@@ -149,6 +152,13 @@ def main(config_path: str = "config.yaml"):
         train_dataset=train_dataset,
         data_collator=data_collator,
     )
+    
+    # 调试：检查 labels 是否有 grad_fn
+    print("\n[DEBUG] 检查 batch 中的 labels...")
+    batch = next(iter(trainer.get_train_dataloader()))
+    print(f"  labels in batch: {'labels' in batch}")
+    if 'labels' in batch:
+        print(f"  labels requires_grad: {batch['labels'].requires_grad}")
     
     # 开始训练
     print("\n[INFO] 开始继续预训练...")
