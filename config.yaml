@@ -48,22 +48,22 @@ fields:
 # 模型配置
 # ============================================================
 model:
-  base_model: Qwen/Qwen2.5-7B
-  tokenizer: Qwen/Qwen2.5-7B
-  dtype: float16              # 改为 float16，更兼容
+  base_model: Qwen/Qwen2.5-1.8B  # 使用小模型便于快速测试
+  tokenizer: Qwen/Qwen2.5-1.8B
+  dtype: float16
   output_dir: output/checkpoints
   # 继续预训练超参
   learning_rate: 2.0e-5
-  num_train_epochs: 3
-  per_device_train_batch_size: 2  # 减小 batch size
-  gradient_accumulation_steps: 16  # 增加梯度累积
-  max_seq_length: 1024            # 减小序列长度
+  num_train_epochs: 1  # 快速测试，训练1个epoch
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
+  max_seq_length: 512  # 减小序列长度
   warmup_ratio: 0.03
-  logging_steps: 50
-  save_steps: 1000
+  logging_steps: 10
+  save_steps: 100
   use_lora: true
-  lora_rank: 8               # 减小 LoRA rank
-  lora_alpha: 16             # 相应减小 alpha
+  lora_rank: 8
+  lora_alpha: 16
   lora_dropout: 0.05
 
 # ============================================================
