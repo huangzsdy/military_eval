@@ -310,6 +310,44 @@ probe_event:
 | ND-NER | Military Named Entity Recognition (19 types) | GitHub: XinyanLi2016/ND-NER |
 | CMNEE | Military Document-level Event Extraction (8 types) | GitHub: Mzzzhu/CMNEE (application required) |
 
+## GPU Memory Requirements
+
+| Model | Precision | Training VRAM | Inference VRAM |
+|-------|-----------|---------------|-----------------|
+| Qwen2.5-1.8B | fp16 | ~6GB | ~4GB |
+| Qwen2.5-7B | fp16 | ~16GB | ~14GB |
+| Qwen2.5-7B + LoRA | fp16 | ~8GB | ~14GB |
+| Qwen2.5-72B | fp16 | ~160GB | ~150GB |
+
+## Troubleshooting
+
+### 1. CUDA Errors
+If you encounter CUDA errors, try modifying the config:
+
+```yaml
+model:
+  dtype: float16
+  per_device_train_batch_size: 1
+  max_seq_length: 1024
+```
+
+### 2. Out of Memory
+- Enable LoRA: `use_lora: true`
+- Reduce LoRA rank: `lora_rank: 8`
+- Reduce batch size
+
+### 3. AdamW Import Error
+Import from torch instead:
+```python
+from torch.optim import AdamW
+```
+
+### 4. Model Download Failed
+Use Chinese mirror:
+```bash
+export HF_ENDPOINT=https://hf-mirror.com
+```
+
 ## License
 
 This project is for research purposes. Please comply with data licensing terms.
@@ -638,6 +676,47 @@ python -m src.static_eval --config config.yaml
 
 # 运行完整评测（需要GPU，约16GB显存）
 python -m src.run_all --config config.yaml
+
+# 多字段评测（需要配置 fields）
+python -m src.multi_field_eval --config config.yaml
+```
+
+## 显存要求
+
+| 模型 | 精度 | 训练显存 | 推理显存 |
+|------|------|----------|----------|
+| Qwen2.5-1.8B | fp16 | ~6GB | ~4GB |
+| Qwen2.5-7B | fp16 | ~16GB | ~14GB |
+| Qwen2.5-7B + LoRA | fp16 | ~8GB | ~14GB |
+| Qwen2.5-72B | fp16 | ~160GB | ~150GB |
+
+## 常见问题
+
+### 1. CUDA 错误
+如果遇到 `CUBA` 错误，尝试修改配置：
+
+```yaml
+model:
+  dtype: float16  # 改用 float16
+  per_device_train_batch_size: 1  # 减小 batch size
+  max_seq_length: 1024  # 减小序列长度
+```
+
+### 2. 显存不足
+- 启用 LoRA：`use_lora: true`
+- 减小 LoRA rank：`lora_rank: 8`
+- 减少 batch size
+
+### 3. AdamW 导入错误
+新版本 transformers 不包含 AdamW，请确保从 torch 导入：
+```python
+from torch.optim import AdamW
+```
+
+### 4. 模型下载失败
+配置代理或使用国内镜像：
+```bash
+export HF_ENDPOINT=https://hf-mirror.com
 ```
 
 ## 许可证
