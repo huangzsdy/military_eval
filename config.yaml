@@ -48,7 +48,8 @@ fields:
 # 模型配置
 # ============================================================
 model:
-  base_model: Qwen/Qwen2.5-1.8B  # 使用小模型便于快速测试
+  #base_model: Qwen/Qwen2.5-1.8B  # 使用小模型便于快速测试
+  base_model: ./local_models/Qwen1.5-1.8B  # 使用小模型便于快速测试
   tokenizer: Qwen/Qwen2.5-1.8B
   dtype: float16
   output_dir: output/checkpoints
@@ -65,6 +66,7 @@ model:
   lora_rank: 8
   lora_alpha: 16
   lora_dropout: 0.05
+  gradient_checkpointing: false  # 禁用 gradient checkpointing 避免问题
 
 # ============================================================
 # 静态评测配置

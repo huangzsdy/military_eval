@@ -127,6 +127,7 @@ def main(config_path: str = "config.yaml"):
     
     # 训练参数
     output_dir = config["model"]["output_dir"]
+    use_gradient_checkpointing = config["model"].get("gradient_checkpointing", False)
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=config["model"]["num_train_epochs"],
@@ -139,7 +140,7 @@ def main(config_path: str = "config.yaml"):
         save_total_limit=3,
         bf16=(config["model"]["dtype"] == "bfloat16"),
         fp16=(config["model"]["dtype"] == "float16"),
-        gradient_checkpointing=True,
+        gradient_checkpointing=use_gradient_checkpointing,
         report_to="none",
         dataloader_num_workers=4,
         remove_unused_columns=False,
